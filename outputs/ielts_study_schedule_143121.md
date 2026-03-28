@@ -1,0 +1,1 @@
+This is a sample study schedule for IELTS preparation. Please note that this is just a sample and you should adjust the schedule according to your needs and availability.

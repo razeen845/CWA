@@ -17,8 +17,18 @@ if not os.getenv("OPENAI_API_KEY"):
 # Point SDK to Groq BEFORE importing agents
 import os
 import openai
+from agents import set_default_openai_api, set_default_openai_client
+from openai import AsyncOpenAI
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 openai.base_url = "https://api.groq.com/openai/v1"
+
+# Groq uses chat.completions — NOT the new Responses API
+set_default_openai_api("chat_completions")
+set_default_openai_client(AsyncOpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+))
 
 from core.pipeline import run_pipeline, run_adaptation, get_artifact_content, OUTPUT_DIR
 app = FastAPI(title="Personal AI Trainer", version="1.0.0")
@@ -48,16 +58,21 @@ async def index():
 async def train_stream(req: GoalRequest):
     """SSE stream — runs pipeline and yields live step updates + final result."""
     async def gen():
-        if not req.goal.strip():
-            yield f"data: {json.dumps({'error': 'Empty goal'})}\n\n"
-            return
-        result = await run_pipeline(req.goal.strip())
-        # Store in session for override
-        session_id = str(abs(hash(req.goal.strip())))
-        session_store[session_id] = result
-        for step in result["steps"]:
-            yield f"data: {json.dumps({'step': step})}\n\n"
-        yield f"data: {json.dumps({'done': True, 'result': result, 'session_id': session_id})}\n\n"
+        try:
+            if not req.goal.strip():
+                yield f"data: {json.dumps({'error': 'Empty goal'})}\n\n"
+                return
+            result = await run_pipeline(req.goal.strip())
+            session_id = str(abs(hash(req.goal.strip())))
+            session_store[session_id] = result
+            for step in result["steps"]:
+                yield f"data: {json.dumps({'step': step})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'result': result, 'session_id': session_id})}\n\n"
+        except Exception as e:
+            import traceback
+            err_msg = f"{type(e).__name__}: {str(e)}"
+            print("[train/stream ERROR]", traceback.format_exc())
+            yield f"data: {json.dumps({'error': err_msg})}\n\n"
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
@@ -65,16 +80,21 @@ async def train_stream(req: GoalRequest):
 async def override_stream(req: OverrideRequest):
     """SSE stream — user submits corrections, AdaptAgent responds."""
     async def gen():
-        original = session_store.get(req.session_id)
-        if not original:
-            yield f"data: {json.dumps({'error': 'Session not found. Please re-run the analysis.'})}\n\n"
-            return
-        adaptation_result = await run_adaptation(original, req.overrides)
-        # Merge adaptation back into session
-        session_store[req.session_id]["adaptation"] = adaptation_result["adaptation"]
-        for step in adaptation_result["steps"]:
-            yield f"data: {json.dumps({'step': step})}\n\n"
-        yield f"data: {json.dumps({'done': True, 'adaptation': adaptation_result['adaptation']})}\n\n"
+        try:
+            original = session_store.get(req.session_id)
+            if not original:
+                yield f"data: {json.dumps({'error': 'Session not found. Please re-run the analysis.'})}\n\n"
+                return
+            adaptation_result = await run_adaptation(original, req.overrides)
+            session_store[req.session_id]["adaptation"] = adaptation_result["adaptation"]
+            for step in adaptation_result["steps"]:
+                yield f"data: {json.dumps({'step': step})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'adaptation': adaptation_result['adaptation']})}\n\n"
+        except Exception as e:
+            import traceback
+            err_msg = f"{type(e).__name__}: {str(e)}"
+            print("[override/stream ERROR]", traceback.format_exc())
+            yield f"data: {json.dumps({'error': err_msg})}\n\n"
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 

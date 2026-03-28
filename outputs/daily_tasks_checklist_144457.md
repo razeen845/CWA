@@ -1,0 +1,1 @@
+This is a daily tasks checklist for a beginner training to run a 5K without stopping. The tasks include brisk walking, jogging, strength training, and rest days.

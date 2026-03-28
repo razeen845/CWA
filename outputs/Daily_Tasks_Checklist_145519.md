@@ -1,0 +1,1 @@
+This is a daily tasks checklist for a junior data analyst.

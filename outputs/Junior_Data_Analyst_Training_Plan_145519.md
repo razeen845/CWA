@@ -1,0 +1,1 @@
+This is a training plan for a junior data analyst. It includes a weekly schedule and daily tasks.

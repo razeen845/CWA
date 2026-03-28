@@ -480,11 +480,56 @@ No markdown fences — pure JSON.
 # Helpers
 # ─────────────────────────────────────────────
 def _extract_json(text: str) -> dict:
+    # Strip markdown fences
     clean = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+
+    # Extract the outermost JSON object
     match = re.search(r'\{.*\}', clean, re.DOTALL)
-    if match:
-        return json.loads(match.group())
-    return json.loads(clean)
+    raw = match.group() if match else clean
+
+    # Try strict parse first
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Sanitize: replace bare control characters (newlines/tabs etc.)
+    # inside JSON string values with their escaped equivalents
+    def _sanitize(s: str) -> str:
+        result = []
+        in_string = False
+        escape_next = False
+        for ch in s:
+            if escape_next:
+                result.append(ch)
+                escape_next = False
+                continue
+            if ch == '\\':
+                escape_next = True
+                result.append(ch)
+                continue
+            if ch == '"':
+                in_string = not in_string
+                result.append(ch)
+                continue
+            if in_string and ord(ch) < 0x20:
+                # Replace bare control chars with JSON escape sequences
+                escapes = {'\n': '\\n', '\r': '\\r', '\t': '\\t', '\b': '\\b', '\f': '\\f'}
+                result.append(escapes.get(ch, f'\\u{ord(ch):04x}'))
+            else:
+                result.append(ch)
+        return ''.join(result)
+
+    try:
+        return json.loads(_sanitize(raw))
+    except json.JSONDecodeError:
+        pass
+
+    # Last resort: strip ALL control characters aggressively
+    stripped = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
+    return json.loads(stripped)
+
+
 
 
 def _list_output_files() -> set:

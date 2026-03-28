@@ -1,0 +1,1 @@
+This is a summary of the training plan for a beginner to run a 5K without stopping. The plan lasts for 8 weeks and includes a combination of cardio endurance, strength training, and rest days. The resources used include the Couch to 5K app, running form videos, and a book on strength training for runners.

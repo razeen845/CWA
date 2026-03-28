@@ -1198,7 +1198,7 @@
       // Metrics
       document.getElementById('metrics').innerHTML = `
     <div class="mc"><div class="mv">${profile.current_level || '—'}</div><div class="ml">Level</div></div>
-    <div class="mc gold"><div class="mv">${plan.duration_weeks || '?'}w</div><div class="ml">Plan Duration</div></div>
+    <div class="mc gold" data-metric="duration"><div class="mv">${plan.duration_weeks || '?'}w</div><div class="ml">Plan Duration</div></div>
     <div class="mc blue"><div class="mv">${profile.time_per_week_hours || '?'}h</div><div class="ml">Hours / Week</div></div>
     <div class="mc"><div class="mv">${(plan.milestones || []).length}</div><div class="ml">Milestones</div></div>
     <div class="mc red"><div class="mv">${(research.skill_gaps || []).length}</div><div class="ml">Skill Gaps</div></div>
@@ -1362,6 +1362,10 @@
     }
 
     function renderAdaptation(a) {
+      console.log('[AdaptAgent]', JSON.stringify(a.adapted_sections, null, 2));
+      // Cache the duration card once using a stable attribute — class changes won't break it
+      const durationCard = document.querySelector('[data-metric="duration"]');
+
       // ── Acknowledgement panel ──
       document.getElementById('adapt-summary').textContent = a.adaptation_summary || '';
       const acks = a.acknowledgements || {};
@@ -1381,18 +1385,13 @@
 
       // Update weekly plan grid if adapted
       if (adapted.weekly_plan) {
-        // Handle multiple possible structures from the LLM
         let ws = null;
         if (adapted.weekly_plan.weekly_structure && typeof adapted.weekly_plan.weekly_structure === 'object') {
           ws = adapted.weekly_plan.weekly_structure;
         } else if (typeof adapted.weekly_plan === 'object') {
-          // Check if the keys look like day names
           const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
           const keys = Object.keys(adapted.weekly_plan);
-          const hasDays = keys.some(k => dayNames.includes(k));
-          if (hasDays) {
-            ws = adapted.weekly_plan;
-          }
+          if (keys.some(k => dayNames.includes(k))) ws = adapted.weekly_plan;
         }
         if (ws && typeof ws === 'object' && Object.keys(ws).length > 0) {
           document.getElementById('week-grid').innerHTML = Object.entries(ws).map(([day, info]) => {
@@ -1407,7 +1406,6 @@
       `}).join('');
         }
 
-        // Update milestones if present inside weekly_plan
         const milestones = adapted.weekly_plan.milestones;
         if (Array.isArray(milestones) && milestones.length > 0) {
           document.getElementById('milestones').innerHTML = milestones.map(m => `
@@ -1418,68 +1416,86 @@
       `).join('');
         }
 
-        // Update duration metric if adapted plan has it
+        // Update Plan Duration card from weekly_plan.duration_weeks
         const newDuration = adapted.weekly_plan.duration_weeks;
-        if (newDuration && typeof newDuration === 'number') {
-          const durationCard = document.querySelector('#metrics .mc.gold');
-          if (durationCard) {
-            durationCard.querySelector('.mv').textContent = newDuration + 'w';
-            durationCard.style.borderColor = 'rgba(79,142,247,.4)';
-            durationCard.querySelector('.mv').style.color = 'var(--blue)';
-          }
+        if (newDuration && typeof newDuration === 'number' && durationCard) {
+          durationCard.querySelector('.mv').textContent = newDuration + 'w';
+          durationCard.querySelector('.ml').textContent = 'Plan Duration ↻';
+          durationCard.className = 'mc blue';
+          durationCard.setAttribute('data-metric', 'duration'); // keep stable attr after class change
         }
       }
 
-      // Update time estimate metric if adapted (using DOM manipulation, not regex)
-      if (adapted.time_estimate) {
-        // Extract a clean display string from the time_estimate
+      // Update Plan Duration card from time_estimate
+      if (adapted.time_estimate && durationCard) {
         let displayText = '';
         if (typeof adapted.time_estimate === 'string') {
           displayText = adapted.time_estimate;
         } else if (typeof adapted.time_estimate === 'object') {
-          displayText = adapted.time_estimate.time_estimate_to_goal
+          const raw = adapted.time_estimate.time_estimate_to_goal
             || adapted.time_estimate.new_estimated_weeks
             || adapted.time_estimate.estimated_weeks
             || adapted.time_estimate.duration
             || adapted.time_estimate.estimate
-            || '';
-          // If we got a number (e.g. weeks), format it
-          if (typeof displayText === 'number') {
-            displayText = displayText + 'w';
-          }
-          // Fallback: if still empty or an object, try to make a clean string
-          if (!displayText || typeof displayText === 'object') {
-            // Try to extract any string-valued property
-            const vals = Object.values(adapted.time_estimate).filter(v => typeof v === 'string');
-            displayText = vals[0] || '';
+            || adapted.time_estimate.weeks
+            || null;
+          displayText = (typeof raw === 'number') ? raw + 'w' : (raw || '');
+          if (!displayText) {
+            // last resort: grab first string value from the object
+            displayText = Object.values(adapted.time_estimate).find(v => typeof v === 'string') || '';
           }
         }
-
         if (displayText) {
-          // Update the Plan Duration metric card using DOM API (not regex)
-          const durationCard = document.querySelector('#metrics .mc.gold');
-          if (durationCard) {
-            durationCard.querySelector('.mv').textContent = displayText;
-            durationCard.querySelector('.ml').textContent = 'Plan Duration ↻';
-            durationCard.className = 'mc blue';
-          }
+          durationCard.querySelector('.mv').textContent = displayText;
+          durationCard.querySelector('.ml').textContent = 'Plan Duration ↻';
+          durationCard.className = 'mc blue';
+          durationCard.setAttribute('data-metric', 'duration');
         }
       }
 
-      // Update confidence score cards for adapted sections
-      if (Object.keys(updScores).length > 0) {
-        Object.entries(updScores).forEach(([key, val]) => {
-          const card = document.querySelector(`[data-score-key="${key}"]`);
-          if (card) {
-            card.querySelector('.sc-badge').textContent = val.score + '%';
-            card.querySelector('.sc-badge').className = `sc-badge ${val.level || 'high'}`;
-            card.querySelector('.sc-bar').style.width = val.score + '%';
-            card.querySelector('.sc-bar').className = `sc-bar ${val.level || 'high'}`;
-            card.querySelector('.sc-reason').textContent = val.reason || '';
-            card.style.borderColor = 'rgba(79,142,247,.4)';
-          }
-        });
+      // ── Fully re-render confidence score cards with updated scores ──
+      // Normalize a key to snake_case for reliable matching
+      const norm = k => k.toLowerCase().replace(/\s+/g, '_');
+
+      // Grab the original scores from lastResult
+      const origScores = (lastResult?.confidence?.confidence_scores) || {};
+
+      // Build a normalized lookup from updScores (LLM keys may be inconsistent)
+      const updNorm = {};
+      Object.entries(updScores).forEach(([k, v]) => { updNorm[norm(k)] = v; });
+
+      // Merge: updated scores override originals
+      const mergedScores = {};
+      Object.entries(origScores).forEach(([key, val]) => {
+        const updated = updNorm[norm(key)];
+        mergedScores[key] = updated ? { ...val, ...updated, _updated: true } : val;
+      });
+
+      // Re-render the whole grid
+      if (Object.keys(mergedScores).length > 0) {
+        document.getElementById('score-grid').innerHTML = Object.entries(mergedScores).map(([key, val]) => `
+          <div class="score-card" data-score-key="${key}" style="${val._updated ? 'border-color:rgba(79,142,247,.4);' : ''}">
+            <div class="sc-header">
+              <div class="sc-name">${key.replace(/_/g, ' ')}${val._updated ? ' <span style="color:var(--blue);font-size:10px;">↑ updated</span>' : ''}</div>
+              <div class="sc-badge ${val.level || 'medium'}">${val.score}%</div>
+            </div>
+            <div class="sc-bar-bg"><div class="sc-bar ${val.level || 'medium'}" style="width:${val.score}%"></div></div>
+            <div class="sc-reason">${val.reason || ''}</div>
+            ${(val.uncertainty_factors || []).map(f => `<div class="sc-factors"><span>${f}</span></div>`).join('')}
+          </div>
+        `).join('');
       }
+
+      // Update overall confidence if any scores changed
+      if (Object.keys(updNorm).length > 0) {
+        const allScores = Object.values(mergedScores).map(v => v.score).filter(Number.isFinite);
+        if (allScores.length > 0) {
+          const newOverall = Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
+          document.getElementById('oc-num').textContent = newOverall + '%';
+        }
+      }
+
+
 
       document.getElementById('adapt-section').classList.add('on');
       document.getElementById('adapt-section').scrollIntoView({ behavior: 'smooth' });
