@@ -1,0 +1,1 @@
+This is a daily checklist to help you stay on track with your training plan. It includes tasks such as warm-up routines, running workouts, strength training exercises, and cool-down stretches.

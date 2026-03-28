@@ -1,0 +1,1 @@
+Monday: Running technique and endurance\nTuesday: Rest / Light review\nWednesday: Interval training\nThursday: Rest and recovery\nFriday: Endurance building\nSaturday: Pace practice\nSunday: Long slow distance

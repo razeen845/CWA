@@ -1,0 +1,1 @@
+This is a daily tasks checklist for the junior data analyst training plan. It includes tasks for each day of the week.

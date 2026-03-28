@@ -1,0 +1,1 @@
+This 8-week training plan is designed to help beginners go from couch to 5K. The plan includes a mix of endurance building, interval training, and rest days to help you progress gradually and safely.

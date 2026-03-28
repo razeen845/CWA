@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal AI Trainer — Human in the Loop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #05070a;
+      --s1: #0c0f14;
+      --s2: #111620;
+      --border: #1c2230;
+      --hi: #243040;
+      --gold: #f5c542;
+      --gold-dim: rgba(245, 197, 66, 0.15);
+      --green: #22d3a0;
+      --green-dim: rgba(34, 211, 160, 0.12);
+      --blue: #4f8ef7;
+      --red: #f05252;
+      --text: #b0bdd0;
+      --text-hi: #e8edf5;
+      --text-dim: #4a5568;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+    }
+
+    /* subtle dot grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(245, 197, 66, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 36px 0 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: clamp(24px, 3.5vw, 38px);
+      font-weight: 700;
+      color: var(--text-hi);
+      line-height: 1.15;
+    }
+
+    h1 em {
+      color: var(--gold);
+      font-style: normal;
+    }
+
+    .twist-badge {
+      background: var(--gold-dim);
+      border: 1px solid rgba(245, 197, 66, .4);
+      border-radius: 6px;
+      padding: 10px 16px;
+      text-align: right;
+    }
+
+    .twist-badge .tb-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: .2em;
+      margin-bottom: 4px;
+    }
+
+    .twist-badge .tb-text {
+      font-size: 13px;
+      color: var(--text-hi);
+      font-weight: 500;
+    }
+
+    /* ── Pipeline ── */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      margin-bottom: 40px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      gap: 0;
+    }
+
+    .agent-node {
+      flex-shrink: 0;
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 11px 14px;
+      text-align: center;
+      min-width: 100px;
+      transition: border-color .3s, box-shadow .3s;
+    }
+
+    .agent-node.twist-node {
+      border-color: rgba(245, 197, 66, .3);
+    }
+
+    .agent-node.active {
+      border-color: var(--green);
+      box-shadow: 0 0 16px rgba(34, 211, 160, .15);
+    }
+
+    .agent-node.active.twist-node {
+      border-color: var(--gold);
+      box-shadow: 0 0 16px rgba(245, 197, 66, .2);
+    }
+
+    .agent-node.done {
+      border-color: var(--blue);
+    }
+
+    .agent-node.done.twist-node {
+      border-color: var(--gold);
+    }
+
+    .an-icon {
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+
+    .an-num {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+    }
+
+    .an-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-hi);
+      margin-top: 1px;
+    }
+
+    .an-twist {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    .arrow {
+      flex-shrink: 0;
+      color: var(--border);
+      font-family: var(--mono);
+      font-size: 16px;
+      padding: 0 5px;
+    }
+
+    /* ── Input ── */
+    .input-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 26px;
+      margin-bottom: 32px;
+    }
+
+    .slabel {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--green);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-hi);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 14px;
+      resize: vertical;
+      min-height: 110px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    textarea:focus {
+      border-color: var(--green);
+    }
+
+    textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .examples {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .ex-l {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .pill {
+      background: transparent;
+      border: 1px solid var(--hi);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .2s;
+      font-family: var(--mono);
+    }
+
+    .pill:hover {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .go-btn {
+      margin-top: 16px;
+      background: var(--gold);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 30px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .go-btn:hover:not(:disabled) {
+      background: #ffd966;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245, 197, 66, .3);
+    }
+
+    .go-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(0, 0, 0, .25);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+
+    .spinner.on {
+      display: block;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Log ── */
+    .log-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 32px;
+      display: none;
+    }
+
+    .log-card.on {
+      display: block;
+    }
+
+    .log-body {
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 2;
+      color: var(--text-dim);
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .log-body .lg-done {
+      color: var(--green);
+    }
+
+    .log-body .lg-file {
+      color: var(--gold);
+    }
+
+    .log-body .lg-twist {
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    .log-body .lg-override {
+      color: var(--blue);
+    }
+
+    /* ── Results ── */
+    #results {
+      display: none;
+    }
+
+    #results.on {
+      display: block;
+    }
+
+    /* Metrics */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .mc {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mc::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--green);
+    }
+
+    .mc.gold::after {
+      background: var(--gold);
+    }
+
+    .mc.blue::after {
+      background: var(--blue);
+    }
+
+    .mc.red::after {
+      background: var(--red);
+    }
+
+    .mv {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-hi);
+      font-family: var(--mono);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .ml {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    /* Plan week grid */
+    .plan-section {
+      margin-bottom: 32px;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .day-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .day-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--gold);
+      margin-bottom: 6px;
+      letter-spacing: .1em;
+    }
+
+    .day-focus {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-hi);
+      margin-bottom: 4px;
+    }
+
+    .day-dur {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .day-tasks {
+      margin-top: 8px;
+    }
+
+    .day-task {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 2px 0;
+    }
+
+    .day-task::before {
+      content: '→ ';
+      color: var(--green);
+    }
+
+    /* Milestones */
+    .milestones {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .milestone {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .ms-week {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .ms-text {
+      font-size: 13px;
+      color: var(--text-hi);
+    }
+
+    /* Artifacts */
+    .artifact-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .acard {
+      background: var(--s1);
+      border: 1px solid rgba(245, 197, 66, .2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .aname {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--gold);
+    }
+
+    .abtn {
+      background: transparent;
+      border: 1px solid var(--hi);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .abtn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    /* ══════════════════════════════════════════
+       TWIST SECTION — Confidence + Override
+       ══════════════════════════════════════════ */
+    .twist-section {
+      background: var(--s1);
+      border: 1px solid rgba(245, 197, 66, .35);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .twist-section::before {
+      content: 'THE TWIST';
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: rgba(245, 197, 66, .4);
+      letter-spacing: .3em;
+    }
+
+    .twist-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .twist-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-hi);
+    }
+
+    .overall-conf {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--gold-dim);
+      border: 1px solid rgba(245, 197, 66, .3);
+      border-radius: 6px;
+      padding: 8px 14px;
+    }
+
+    .oc-num {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+
+    .oc-label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .conf-invite {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    /* Score cards */
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .score-card {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .sc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .sc-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-hi);
+      text-transform: capitalize;
+    }
+
+    .sc-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .sc-badge.high {
+      background: var(--green-dim);
+      color: var(--green);
+    }
+
+    .sc-badge.medium {
+      background: rgba(79, 142, 247, .12);
+      color: var(--blue);
+    }
+
+    .sc-badge.low {
+      background: rgba(240, 82, 82, .1);
+      color: var(--red);
+    }
+
+    .sc-bar-bg {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .sc-bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width .8s ease;
+    }
+
+    .sc-bar.high {
+      background: var(--green);
+    }
+
+    .sc-bar.medium {
+      background: var(--blue);
+    }
+
+    .sc-bar.low {
+      background: var(--red);
+    }
+
+    .sc-reason {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+
+    .sc-factors {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--red);
+    }
+
+    .sc-factors span::before {
+      content: '⚠ ';
+    }
+
+    /* Override form */
+    .override-form {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+
+    .override-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-hi);
+      margin-bottom: 6px;
+    }
+
+    .override-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .override-fields {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .override-field label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: .15em;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .override-field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-hi);
+      font-family: var(--sans);
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .override-field input:focus {
+      border-color: var(--gold);
+    }
+
+    .override-field input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .submit-override-btn {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      border-radius: 6px;
+      padding: 10px 24px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .submit-override-btn:hover:not(:disabled) {
+      background: var(--gold-dim);
+    }
+
+    .submit-override-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    /* Adaptation result */
+    .adaptation-section {
+      background: var(--s1);
+      border: 1px solid rgba(79, 142, 247, .3);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+      display: none;
+    }
+
+    .adaptation-section.on {
+      display: block;
+    }
+
+    .adapt-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .adapt-icon {
+      font-size: 22px;
+    }
+
+    .adapt-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-hi);
+    }
+
+    .adapt-summary {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 20px;
+      background: var(--s2);
+      border-radius: 6px;
+      padding: 14px;
+    }
+
+    .ack-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ack-item {
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .ack-section {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--blue);
+      letter-spacing: .1em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .ack-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .updated-scores {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .us-chip {
+      background: var(--green-dim);
+      border: 1px solid rgba(34, 211, 160, .3);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--green);
+    }
+
+    /* Error */
+    .err {
+      background: rgba(240, 82, 82, .08);
+      border: 1px solid rgba(240, 82, 82, .3);
+      border-radius: 8px;
+      padding: 16px;
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 12px;
+      display: none;
+      margin-bottom: 20px;
+    }
+
+    .err.on {
+      display: block;
+    }
+
+    /* Modal */
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-bg.on {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--s1);
+      border: 1px solid var(--hi);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 680px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mh {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mt {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-hi);
+    }
+
+    .mc-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .mb {
+      padding: 18px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .mb pre {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+
+    <header>
+      <div>
+        <div class="tag">// Personal AI Trainer · CWA Prompt-a-thon 2026</div>
+        <h1>Your AI Trainer<br>with <em>Human in the Loop</em></h1>
+      </div>
+      <div class="twist-badge">
+        <div class="tb-label">// The Twist</div>
+        <div class="tb-text">Every output has a confidence score.<br>You can override. The AI adapts.</div>
+      </div>
+    </header>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+      <div class="agent-node" id="n-profiler">
+        <div class="an-icon">👤</div>
+        <div class="an-num">01</div>
+        <div class="an-label">Profiler</div>
+      </div>
+      <div class="arrow">─▶</div>
+      <div class="agent-node" id="n-research">
+        <div class="an-icon">🔬</div>
+        <div class="an-num">02</div>
+        <div class="an-label">Research</div>
+      </div>
+      <div class="arrow">─▶</div>
+      <div class="agent-node" id="n-planner">
+        <div class="an-icon">📋</div>
+        <div class="an-num">03</div>
+        <div class="an-label">Planner</div>
+      </div>
+      <div class="arrow">─▶</div>
+      <div class="agent-node" id="n-executor">
+        <div class="an-icon">⚡</div>
+        <div class="an-num">04</div>
+        <div class="an-label">Executor</div>
+      </div>
+      <div class="arrow">─▶</div>
+      <div class="agent-node twist-node" id="n-confidence">
+        <div class="an-icon">🎯</div>
+        <div class="an-num">05</div>
+        <div class="an-label">Confidence</div>
+        <div class="an-twist">TWIST</div>
+      </div>
+      <div class="arrow">─▶</div>
+      <div class="agent-node twist-node" id="n-adapt">
+        <div class="an-icon">🔄</div>
+        <div class="an-num">06</div>
+        <div class="an-label">Adapt</div>
+        <div class="an-twist">TWIST</div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-card">
+      <div class="slabel">// Describe Your Goal</div>
+      <textarea id="goal-input"
+        placeholder="Tell me what you want to achieve. E.g. 'I want to learn Python for data science. I'm a complete beginner, have about 1 hour per day, and I learn best by doing projects. My goal is to be job-ready in 3 months.'"></textarea>
+      <div class="examples">
+        <span class="ex-l">Try:</span>
+        <button class="pill" onclick="setEx('python')">Python for Data Science</button>
+        <button class="pill" onclick="setEx('fitness')">Get Fit for a 5K</button>
+        <button class="pill" onclick="setEx('guitar')">Learn Guitar</button>
+        <button class="pill" onclick="setEx('ielts')">IELTS Preparation</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <button class="go-btn" id="go-btn" onclick="runPipeline()">
+          <span id="go-txt">Build My Plan</span>
+          <div class="spinner" id="go-spin"></div>
+        </button>
+        <span id="go-status" style="font-family:var(--mono);font-size:11px;color:var(--text-dim);"></span>
+      </div>
+    </div>
+
+    <div class="err" id="err-box"></div>
+    <div class="log-card" id="log-card">
+      <div class="slabel">// Live Pipeline Log</div>
+      <div class="log-body" id="log-body"></div>
+    </div>
+
+    <div id="results">
+
+      <!-- Metrics -->
+      <div class="metrics" id="metrics"></div>
+
+      <!-- Plan -->
+      <div class="plan-section">
+        <div class="slabel" style="margin-bottom:14px;">// Your Weekly Training Plan</div>
+        <div class="week-grid" id="week-grid"></div>
+      </div>
+
+      <!-- Milestones -->
+      <div style="margin-bottom:8px;">
+        <div class="slabel">// Milestones</div>
+      </div>
+      <div class="milestones" id="milestones"></div>
+
+      <!-- Artifacts -->
+      <div style="margin-bottom:8px;" id="artifacts-label" style="display:none;">
+        <div class="slabel">// Generated Files</div>
+      </div>
+      <div class="artifact-row" id="artifacts-row"></div>
+
+      <!-- ══ TWIST: Confidence + Override ══ -->
+      <div class="twist-section" id="twist-section">
+        <div class="twist-header">
+          <div class="twist-title">🎯 Confidence Scores — Human in the Loop</div>
+          <div class="overall-conf">
+            <div class="oc-num" id="oc-num">—%</div>
+            <div class="oc-label">Overall<br>Confidence</div>
+          </div>
+        </div>
+        <div class="conf-invite" id="conf-invite"></div>
+        <div class="score-grid" id="score-grid"></div>
+
+        <!-- Override Form -->
+        <div class="override-form">
+          <div class="override-title">✏️ Override &amp; Correct the AI</div>
+          <div class="override-sub">Disagree with any section? Tell me what's wrong and I'll adapt the plan immediately.
+          </div>
+          <div class="override-fields" id="override-fields">
+            <!-- dynamically generated per confidence section -->
+          </div>
+          <button class="submit-override-btn" id="override-btn" onclick="submitOverride()">
+            <span id="ov-txt">Submit Corrections → AI Adapts</span>
+            <div class="spinner" id="ov-spin"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Adaptation Result -->
+      <div class="adaptation-section" id="adapt-section">
+        <div class="adapt-header">
+          <div class="adapt-icon">🔄</div>
+          <div class="adapt-title">AI Acknowledged Your Corrections</div>
+        </div>
+        <div class="adapt-summary" id="adapt-summary"></div>
+        <div class="ack-list" id="ack-list"></div>
+        <div class="updated-scores" id="updated-scores"></div>
+      </div>
+
+    </div>
+
+    <footer>
+      <span>Personal AI Trainer — CWA Prompt-a-thon 2026</span>
+      <span>6 Agents: Profiler · Research · Planner · Executor · ConfidenceAgent · AdaptAgent</span>
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-bg" id="modal-bg" onclick="closeMod(event)">
+    <div class="modal">
+      <div class="mh"><span class="mt" id="mod-title">File Preview</span><button class="mc-btn"
+          onclick="closeModDirect()">✕</button></div>
+      <div class="mb">
+        <pre id="mod-content">Loading...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const EX = {
+      python: "I want to learn Python for data science. I'm a complete beginner with no programming experience. I have about 1 hour per day on weekdays and 2 hours on weekends. I learn best by building projects. My goal is to be job-ready as a junior data analyst in 3 months.",
+      fitness: "I want to run a 5K without stopping. Right now I can barely run for 5 minutes. I have 4 days a week I can train, about 45 minutes each session. I've never followed a training plan before. My target race is in 10 weeks.",
+      guitar: "I want to learn acoustic guitar from scratch. I can practice about 30 minutes every evening. I love fingerpicking style music — artists like Ed Sheeran and John Mayer. I've never played any instrument before.",
+      ielts: "I need to prepare for the IELTS academic exam. I'm targeting a band score of 7.0. I'm currently at around 5.5 based on a practice test. I have 8 weeks until my exam date and can study 2 hours per day. My weakest area is writing."
+    };
+
+    let sessionId = null;
+    let lastResult = null;
+
+    function setEx(k) { document.getElementById('goal-input').value = EX[k]; }
+
+    const NODES = {
+      profiler: 'n-profiler', research: 'n-research', planner: 'n-planner',
+      executor: 'n-executor', confidence: 'n-confidence', adapt: 'n-adapt'
+    };
+    function setNode(id, state) {
+      const n = document.getElementById(id);
+      n.classList.remove('active', 'done');
+      if (state) n.classList.add(state);
+    }
+    function log(text, cls = '') {
+      const b = document.getElementById('log-body');
+      const el = document.createElement('div');
+      if (cls) el.className = cls;
+      else if (text.includes('📄')) el.className = 'lg-file';
+      else if (text.includes('✓')) el.className = 'lg-done';
+      else if (text.includes('TWIST') || text.includes('ConfidenceAgent') || text.includes('💬')) el.className = 'lg-twist';
+      else if (text.includes('AdaptAgent') || text.includes('override')) el.className = 'lg-override';
+      el.textContent = text;
+      b.appendChild(el);
+      b.scrollTop = b.scrollHeight;
+    }
+    function updateNodes(step) {
+      if (step.includes('ProfilerAgent')) setNode('n-profiler', 'active');
+      if (step.includes('Level:')) { setNode('n-profiler', 'done'); setNode('n-research', 'active'); }
+      if (step.includes('ResearchAgent')) setNode('n-research', 'active');
+      if (step.includes('skill gaps')) { setNode('n-research', 'done'); setNode('n-planner', 'active'); }
+      if (step.includes('PlannerAgent')) setNode('n-planner', 'active');
+      if (step.includes('milestones')) { setNode('n-planner', 'done'); setNode('n-executor', 'active'); }
+      if (step.includes('ExecutorAgent')) setNode('n-executor', 'active');
+      if (step.includes('files created')) { setNode('n-executor', 'done'); setNode('n-confidence', 'active'); }
+      if (step.includes('ConfidenceAgent')) setNode('n-confidence', 'active');
+      if (step.includes('Overall confidence')) setNode('n-confidence', 'done');
+      if (step.includes('AdaptAgent')) { setNode('n-adapt', 'active'); }
+      if (step.includes('adapted')) setNode('n-adapt', 'done');
+    }
+
+    function confColor(level) {
+      return { high: 'var(--green)', medium: 'var(--blue)', low: 'var(--red)' }[level] || 'var(--text-dim)';
+    }
+
+    function renderResults(r) {
+      lastResult = r;
+      const profile = r.profile || {};
+      const research = r.research || {};
+      const plan = r.plan || {};
+      const conf = r.confidence || {};
+      const scores = conf.confidence_scores || {};
+      const artifacts = r.artifacts || [];
+      const execSteps = (r.execution || {}).executed_steps || [];
+
+      // Metrics
+      document.getElementById('metrics').innerHTML = `
+    <div class="mc"><div class="mv">${profile.current_level || '—'}</div><div class="ml">Level</div></div>
+    <div class="mc gold"><div class="mv">${plan.duration_weeks || '?'}w</div><div class="ml">Plan Duration</div></div>
+    <div class="mc blue"><div class="mv">${profile.time_per_week_hours || '?'}h</div><div class="ml">Hours / Week</div></div>
+    <div class="mc"><div class="mv">${(plan.milestones || []).length}</div><div class="ml">Milestones</div></div>
+    <div class="mc red"><div class="mv">${(research.skill_gaps || []).length}</div><div class="ml">Skill Gaps</div></div>
+  `;
+
+      // Weekly plan
+      const ws = plan.weekly_structure || {};
+      document.getElementById('week-grid').innerHTML = Object.entries(ws).map(([day, info]) => `
+    <div class="day-card">
+      <div class="day-name">${day}</div>
+      <div class="day-focus">${info.focus || 'Rest'}</div>
+      <div class="day-dur">${info.duration_mins || 0} min</div>
+      ${(info.tasks || []).length ? `<div class="day-tasks">${(info.tasks || []).slice(0, 3).map(t => `<div class="day-task">${t}</div>`).join('')}</div>` : ''}
+    </div>
+  `).join('');
+
+      // Milestones
+      document.getElementById('milestones').innerHTML = (plan.milestones || []).map(m => `
+    <div class="milestone">
+      <div class="ms-week">Week ${m.week}</div>
+      <div class="ms-text">${m.milestone}</div>
+    </div>
+  `).join('');
+
+      // Artifacts
+      if (artifacts.length) {
+        document.getElementById('artifacts-label').style.display = 'block';
+        document.getElementById('artifacts-row').innerHTML = artifacts.map(f => `
+      <div class="acard">
+        <span class="aname">📄 ${f}</span>
+        <button class="abtn" onclick="preview('${f}')">Preview</button>
+        <a class="abtn" href="/artifact/${encodeURIComponent(f)}" download>Download</a>
+      </div>
+    `).join('');
+      }
+
+      // ── TWIST: Confidence scores ──
+      document.getElementById('oc-num').textContent = (conf.overall_confidence || 0) + '%';
+      document.getElementById('conf-invite').textContent = conf.override_invitation || '';
+
+      document.getElementById('score-grid').innerHTML = Object.entries(scores).map(([key, val]) => `
+    <div class="score-card" data-score-key="${key}">
+      <div class="sc-header">
+        <div class="sc-name">${key.replace(/_/g, ' ')}</div>
+        <div class="sc-badge ${val.level || 'medium'}">${val.score}%</div>
+      </div>
+      <div class="sc-bar-bg"><div class="sc-bar ${val.level || 'medium'}" style="width:${val.score}%"></div></div>
+      <div class="sc-reason">${val.reason}</div>
+      ${(val.uncertainty_factors || []).map(f => `<div class="sc-factors"><span>${f}</span></div>`).join('')}
+    </div>
+  `).join('');
+
+      // Override fields — one per section
+      document.getElementById('override-fields').innerHTML = Object.keys(scores).map(key => `
+    <div class="override-field">
+      <label>${key.replace(/_/g, ' ').toUpperCase()}</label>
+      <input type="text" id="ov-${key}" placeholder="Leave blank to keep AI's version, or type your correction..." />
+    </div>
+  `).join('');
+
+      document.getElementById('results').classList.add('on');
+    }
+
+    async function runPipeline() {
+      const goal = document.getElementById('goal-input').value.trim();
+      if (!goal) { alert('Please describe your goal first.'); return; }
+
+      document.getElementById('err-box').classList.remove('on');
+      document.getElementById('results').classList.remove('on');
+      document.getElementById('adapt-section').classList.remove('on');
+      document.getElementById('log-card').classList.add('on');
+      document.getElementById('log-body').innerHTML = '';
+      Object.values(NODES).forEach(id => setNode(id, ''));
+
+      const btn = document.getElementById('go-btn');
+      btn.disabled = true;
+      document.getElementById('go-spin').classList.add('on');
+      document.getElementById('go-txt').textContent = 'Building plan...';
+      document.getElementById('go-status').textContent = 'Pipeline running...';
+
+      try {
+        const resp = await fetch('/train/stream', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ goal })
+        });
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n'); buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const d = JSON.parse(line.slice(6));
+            if (d.step) { log(d.step); updateNodes(d.step); }
+            if (d.done && d.result) {
+              sessionId = d.session_id;
+              renderResults(d.result);
+              document.getElementById('go-status').textContent = 'Plan ready — review confidence scores below ↓';
+            }
+            if (d.error) { document.getElementById('err-box').textContent = d.error; document.getElementById('err-box').classList.add('on'); }
+          }
+        }
+      } catch (e) {
+        document.getElementById('err-box').textContent = 'Error: ' + e.message;
+        document.getElementById('err-box').classList.add('on');
+      } finally {
+        btn.disabled = false;
+        document.getElementById('go-spin').classList.remove('on');
+        document.getElementById('go-txt').textContent = 'Build My Plan';
+      }
+    }
+
+    async function submitOverride() {
+      if (!sessionId) { alert('Please run the pipeline first.'); return; }
+      const scores = (lastResult?.confidence?.confidence_scores) || {};
+      const overrides = {};
+      for (const key of Object.keys(scores)) {
+        const val = (document.getElementById(`ov-${key}`)?.value || '').trim();
+        if (val) overrides[key] = val;
+      }
+      if (Object.keys(overrides).length === 0) { alert('Please enter at least one correction to submit.'); return; }
+
+      document.getElementById('override-btn').disabled = true;
+      document.getElementById('ov-spin').classList.add('on');
+      document.getElementById('ov-txt').textContent = 'AI is adapting...';
+      document.getElementById('adapt-section').classList.remove('on');
+      setNode('n-adapt', 'active');
+
+      try {
+        const resp = await fetch('/override/stream', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, overrides })
+        });
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n'); buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const d = JSON.parse(line.slice(6));
+            if (d.step) { log(d.step); updateNodes(d.step); }
+            if (d.done && d.adaptation) { renderAdaptation(d.adaptation); setNode('n-adapt', 'done'); }
+            if (d.error) { document.getElementById('err-box').textContent = d.error; document.getElementById('err-box').classList.add('on'); }
+          }
+        }
+      } catch (e) {
+        document.getElementById('err-box').textContent = 'Adaptation error: ' + e.message;
+        document.getElementById('err-box').classList.add('on');
+      } finally {
+        document.getElementById('override-btn').disabled = false;
+        document.getElementById('ov-spin').classList.remove('on');
+        document.getElementById('ov-txt').textContent = 'Submit Corrections → AI Adapts';
+      }
+    }
+
+    function renderAdaptation(a) {
+      // ── Acknowledgement panel ──
+      document.getElementById('adapt-summary').textContent = a.adaptation_summary || '';
+      const acks = a.acknowledgements || {};
+      document.getElementById('ack-list').innerHTML = Object.entries(acks).map(([sec, text]) => `
+    <div class="ack-item">
+      <div class="ack-section">${sec.replace(/_/g, ' ')}</div>
+      <div class="ack-text">${text}</div>
+    </div>
+  `).join('');
+      const updScores = a.updated_confidence_scores || {};
+      document.getElementById('updated-scores').innerHTML = Object.entries(updScores).map(([sec, val]) => `
+    <div class="us-chip">${sec.replace(/_/g, ' ')}: ${val.score}% ↑</div>
+  `).join('');
+
+      // ── Re-render plan sections that were adapted ──
+      const adapted = a.adapted_sections || {};
+
+      // Update weekly plan grid if adapted
+      if (adapted.weekly_plan) {
+        // Handle multiple possible structures from the LLM
+        let ws = null;
+        if (adapted.weekly_plan.weekly_structure && typeof adapted.weekly_plan.weekly_structure === 'object') {
+          ws = adapted.weekly_plan.weekly_structure;
+        } else if (typeof adapted.weekly_plan === 'object') {
+          // Check if the keys look like day names
+          const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+          const keys = Object.keys(adapted.weekly_plan);
+          const hasDays = keys.some(k => dayNames.includes(k));
+          if (hasDays) {
+            ws = adapted.weekly_plan;
+          }
+        }
+        if (ws && typeof ws === 'object' && Object.keys(ws).length > 0) {
+          document.getElementById('week-grid').innerHTML = Object.entries(ws).map(([day, info]) => {
+            if (typeof info !== 'object' || info === null) return '';
+            return `
+        <div class="day-card" style="border-color:rgba(79,142,247,.4);">
+          <div class="day-name" style="color:var(--blue);">${day} ↻</div>
+          <div class="day-focus">${info.focus || 'Rest'}</div>
+          <div class="day-dur">${info.duration_mins || 0} min</div>
+          ${(info.tasks || []).length ? `<div class="day-tasks">${(info.tasks || []).slice(0, 3).map(t => `<div class="day-task">${t}</div>`).join('')}</div>` : ''}
+        </div>
+      `}).join('');
+        }
+
+        // Update milestones if present inside weekly_plan
+        const milestones = adapted.weekly_plan.milestones;
+        if (Array.isArray(milestones) && milestones.length > 0) {
+          document.getElementById('milestones').innerHTML = milestones.map(m => `
+        <div class="milestone" style="border-color:rgba(79,142,247,.4);">
+          <div class="ms-week" style="color:var(--blue);">Week ${m.week}</div>
+          <div class="ms-text">${m.milestone}</div>
+        </div>
+      `).join('');
+        }
+
+        // Update duration metric if adapted plan has it
+        const newDuration = adapted.weekly_plan.duration_weeks;
+        if (newDuration && typeof newDuration === 'number') {
+          const durationCard = document.querySelector('#metrics .mc.gold');
+          if (durationCard) {
+            durationCard.querySelector('.mv').textContent = newDuration + 'w';
+            durationCard.style.borderColor = 'rgba(79,142,247,.4)';
+            durationCard.querySelector('.mv').style.color = 'var(--blue)';
+          }
+        }
+      }
+
+      // Update time estimate metric if adapted (using DOM manipulation, not regex)
+      if (adapted.time_estimate) {
+        // Extract a clean display string from the time_estimate
+        let displayText = '';
+        if (typeof adapted.time_estimate === 'string') {
+          displayText = adapted.time_estimate;
+        } else if (typeof adapted.time_estimate === 'object') {
+          displayText = adapted.time_estimate.time_estimate_to_goal
+            || adapted.time_estimate.new_estimated_weeks
+            || adapted.time_estimate.estimated_weeks
+            || adapted.time_estimate.duration
+            || adapted.time_estimate.estimate
+            || '';
+          // If we got a number (e.g. weeks), format it
+          if (typeof displayText === 'number') {
+            displayText = displayText + 'w';
+          }
+          // Fallback: if still empty or an object, try to make a clean string
+          if (!displayText || typeof displayText === 'object') {
+            // Try to extract any string-valued property
+            const vals = Object.values(adapted.time_estimate).filter(v => typeof v === 'string');
+            displayText = vals[0] || '';
+          }
+        }
+
+        if (displayText) {
+          // Update the Plan Duration metric card using DOM API (not regex)
+          const durationCard = document.querySelector('#metrics .mc.gold');
+          if (durationCard) {
+            durationCard.querySelector('.mv').textContent = displayText;
+            durationCard.querySelector('.ml').textContent = 'Plan Duration ↻';
+            durationCard.className = 'mc blue';
+          }
+        }
+      }
+
+      // Update confidence score cards for adapted sections
+      if (Object.keys(updScores).length > 0) {
+        Object.entries(updScores).forEach(([key, val]) => {
+          const card = document.querySelector(`[data-score-key="${key}"]`);
+          if (card) {
+            card.querySelector('.sc-badge').textContent = val.score + '%';
+            card.querySelector('.sc-badge').className = `sc-badge ${val.level || 'high'}`;
+            card.querySelector('.sc-bar').style.width = val.score + '%';
+            card.querySelector('.sc-bar').className = `sc-bar ${val.level || 'high'}`;
+            card.querySelector('.sc-reason').textContent = val.reason || '';
+            card.style.borderColor = 'rgba(79,142,247,.4)';
+          }
+        });
+      }
+
+      document.getElementById('adapt-section').classList.add('on');
+      document.getElementById('adapt-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function preview(f) {
+      document.getElementById('mod-title').textContent = f;
+      document.getElementById('mod-content').textContent = 'Loading...';
+      document.getElementById('modal-bg').classList.add('on');
+      const r = await fetch(`/artifact/${encodeURIComponent(f)}/content`);
+      const d = await r.json();
+      document.getElementById('mod-content').textContent = d.content || 'Empty.';
+    }
+    function closeMod(e) { if (e.target === document.getElementById('modal-bg')) closeModDirect(); }
+    function closeModDirect() { document.getElementById('modal-bg').classList.remove('on'); }
+  </script>
+</body>
+
+</html>

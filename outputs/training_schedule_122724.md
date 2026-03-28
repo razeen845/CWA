@@ -1,0 +1,1 @@
+This is a sample training schedule for a beginner runner.

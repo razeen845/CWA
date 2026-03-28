@@ -1,0 +1,1 @@
+This is a sample schedule for learning acoustic guitar from scratch with a focus on fingerpicking style

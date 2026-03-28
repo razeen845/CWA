@@ -1,0 +1,1 @@
+This is a sample daily task checklist for a beginner runner.

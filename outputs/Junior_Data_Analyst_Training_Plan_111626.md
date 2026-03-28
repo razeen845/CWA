@@ -1,0 +1,1 @@
+This is a 12-week training plan to become job-ready as a junior data analyst. The plan includes daily tasks and weekly milestones.

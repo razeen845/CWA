@@ -1,0 +1,7 @@
+Monday: Endurance building (30 minutes)
+Tuesday: Rest / Light review (20 minutes)
+Wednesday: Interval training (40 minutes)
+Thursday: Running technique and form (35 minutes)
+Friday: Rest / Active recovery (20 minutes)
+Saturday: Long slow distance run (45 minutes)
+Sunday: Rest / Review and tracking (20 minutes)

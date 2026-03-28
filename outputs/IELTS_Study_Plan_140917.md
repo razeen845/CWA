@@ -1,0 +1,1 @@
+This is a detailed 8-week study plan to achieve an IELTS band score of 7.0. The plan includes daily tasks and study sessions, as well as resources and milestones to track progress.

@@ -1,0 +1,1 @@
+This is a beginner 5K training plan that lasts for 8 weeks. The plan includes a mix of running, strength training, and rest days to help you build up your endurance and reach your goal of running a 5K without stopping.
